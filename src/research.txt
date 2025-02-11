@@ -1,0 +1,1909 @@
+//import logo from './logo.svg';
+import './App.css';
+import React, { useState } from "react";
+
+function App() {
+  let [divisor, setDivisor] = useState(1);
+  let [startnum, setStartNum] = useState(0);
+  let [run, setRun] = useState(false);
+  
+  function isLetUndefined(val) { return (val === undefined); }
+  function isLetUndefinedOrNull(val) { return (val === undefined || val === null); }
+  function isLetEmptyNullOrUndefined(val) { return (isLetUndefinedOrNull(val) || val.length < 1); }
+  function letMustBeDefinedAndNotNull(val, varnm="varnm")
+  {
+    if (isLetEmptyNullOrUndefined(varnm)) return letMustBeDefinedAndNotNull(val, "varnm");
+    //else;//do nothing
+    if (isLetUndefinedOrNull(val))
+    {
+      throw new Error(varnm + " must be defined and not null, but it was not!");
+    }
+    else return true;
+  }
+  function letMustNotBeEmpty(val, varnm="varnm")
+  {
+    if (isLetEmptyNullOrUndefined(varnm)) return letMustNotBeEmpty(val, "varnm");
+    //else;//do nothing
+    
+    if (isLetEmptyNullOrUndefined(val))
+    {
+      throw new Error(varnm + " must be defined, not null, and not empty, but it was not!");
+    }
+    else return true;
+  }
+  function letMustBeBoolean(val, varnm="varnm")
+  {
+    if (isLetEmptyNullOrUndefined(varnm)) return letMustBeBoolean(val, "varnm");
+    //else;//do nothing
+    letMustBeDefinedAndNotNull(val, varnm);
+    if (val === true || val === false) return true;
+    else throw new Error(varnm + " must be a defined boolean value, but it was not!");
+  }
+
+  function isLetNotANumber(val) { return (isLetEmptyNullOrUndefined(val) || isNaN(val)); }
+  function letMustBeANumber(val, varnm="varnm")
+  {
+    if (isLetEmptyNullOrUndefined(varnm)) return letMustBeANumber(val, "varnm");
+    //else;//do nothing
+    if (isLetNotANumber(val)) throw new Error(varnm + " must be a number, but it was not!");
+    else return true;
+  }
+
+  //max and min vals are inclusive on the valid range
+  function isNumberInvalid(num, minval, maxval)
+  {
+    letMustBeANumber(num, "num");
+    letMustBeANumber(minval, "minval");
+    letMustBeANumber(maxval, "maxval");
+    return (num < minval || maxval < num);
+  }
+
+  //max and min vals are inclusive on the valid range
+  function letNumberMustBeValidOrInvalid(num, minval, maxval, usevalid, varnm="varnm")
+  {
+    letMustBeBoolean(usevalid);
+    if (isLetEmptyNullOrUndefined(varnm))
+    {
+      return letNumberMustBeValidOrInvalid(num, minval, maxval, usevalid, "varnm");
+    }
+    //else;//do nothing
+
+    if (isNumberInvalid(num, minval, maxval))
+    {
+      if (usevalid) throw new Error(varnm + " must be valid, but it was not!");
+      else return true;
+    }
+    else
+    {
+      if (usevalid) return true;
+      else throw new Error(varnm + " must be invalid, but it was not!");
+    }
+  }
+  function letNumberMustBeValid(num, minval, maxval, varnm="varnm")
+  {
+    return letNumberMustBeValidOrInvalid(num, minval, maxval, true, varnm);
+  }
+  function letNumberMustBeInValid(num, minval, maxval, varnm="varnm")
+  {
+    return letNumberMustBeValidOrInvalid(num, minval, maxval, false, varnm);
+  }
+
+  function genMinusRow(val)
+  {
+    return (<tr><td>-</td><td style={{borderRight: "1px solid black"}}>{val}</td></tr>);
+  }
+
+  function genAnswerRow(val)
+  {
+    return (<tr><td></td><td style={{borderTop: "1px solid black", borderRight: "1px solid black"}}>
+      {val}</td></tr>);
+  }
+
+  function getAndSetNewStartNumAndDivisorNum(snum, divnum)
+  {
+    console.log("snum = " + snum);
+    console.log("divnum = " + divnum);
+    if (divnum === 0 || divnum === "0") throw new Error("cannot divide by zero!");
+    let mydivnumstr = "" + divnum;
+    console.log("mydivnumstr = " + mydivnumstr);
+    console.log("mydivnumstr.length = " + mydivnumstr.length);
+
+    let deptindx = mydivnumstr.indexOf(".");
+    console.log("deptindx = " + deptindx);
+
+    let nodptindiv = (deptindx < 0 || mydivnumstr.length - 1 < deptindx);
+    if (nodptindiv) return {"snum": Number(snum), "divnum": Number(divnum)};
+    else
+    {
+      //6.7
+      //012
+      // ^
+      let tempdivstr =  mydivnumstr.substring(deptindx + 1);
+      console.log("tempdivstr = " + tempdivstr);
+      console.log("tempdivstr.length = " + tempdivstr.length);
+
+      const mymulcnst = Math.pow(10, tempdivstr.length);
+      setStartNum(Number(snum) * mymulcnst);
+      setDivisor(Number(divnum) * mymulcnst);
+      return {"snum": Number(snum) * mymulcnst, "divnum": Number(divnum) * mymulcnst};
+    }
+  }
+
+  //1. get rid of decimal in the divisor by multiplying by 10 until not there
+  //2. you will also multiply the start number by 10 each time you multiplied the divisor by 10
+  //NOTE: keep in mind the start number may still have a decimal in it
+  //6.7|2.211 -> 67|22.11|
+  //0.5|12.5  ->  5|125|
+  //
+  // -----         -------
+  //5|125|       67|22.11|
+  //- 100|20       -20.10|0.3
+  // ----|          -----|
+  //   25|           2.01| .03
+  //-  25|+5        -2.01|
+  // ----|          -----|
+  //    0|25            0|0.33
+  //
+  //3. list out 10 multiples of our divisor (only do once for reference)
+  //4. take the first digit of the start num and see if the divisor has any multiple that goes into it
+  //4A: If not take the first k digits see 4
+  //4B: If it does, for instance 12 has 5 and 10 in it.
+  //the first two digits on 125 is 12 which has 10. 10 is 2*5.
+  //So our answer has a 2 in it as the first digit.
+  //But since the last digit in the k digits gives us the place from the decimal point.
+  //So 2*10^placedif goes into the answer
+  //5. the sub number = multiple_of_divisor_used*10^placediff
+  //6. the new startnum = startnum - the sub number
+  //7. repeat 4 through 6 until remainder is zero or until decimal repeats or
+  //the decimal places have been reached or until you know the remainder.
+
+  function mulValByPowOfTen(sval, mpow)
+  {
+    let mystr = "" + sval;
+    let mydpindx = mystr.indexOf(".");
+    //console.log("mpow = " + mpow);
+    //console.log("mystr = " + mystr);
+    //console.log("mystr.length = " + mystr.length);
+    //console.log("mydpindx = " + mydpindx);
+
+    let pwstr = "" + mpow;
+    let pwdpindx = pwstr.indexOf(".");
+    if (pwdpindx < 0 || pwstr.length - 1 < pwdpindx);
+    else return "" + Math.pow(Number(sval), Number(mpow));
+
+    if (0 < mpow)
+    {
+      if (mydpindx < 0 || mystr.length - 1 < mydpindx) for (let n = 0; n < mpow; n++) mystr += "0";
+      else
+      {
+        if (mydpindx + 1 === mystr.length)
+        {
+          return mulValByPowOfTen(mystr.substring(0, mystr.length - 1), mpow);
+        }
+        //else;//do nothing
+        
+        //need to know how many digits are after the decimal point
+        let numdaftrdp = mystr.length - mydpindx - 1;
+        //console.log("numdaftrdp = " + numdaftrdp);
+
+        //if the pow is more than this
+        const strnodp = mystr.substring(0, mydpindx) + mystr.substring(mydpindx + 1);
+        if (numdaftrdp < mpow) return mulValByPowOfTen(strnodp, mpow - numdaftrdp);
+        else if (numdaftrdp === mpow) mystr = strnodp;
+        else
+        {
+          //pow is less than the num after but more than zero
+          //20.12 * 10 pow = 1 -> 201.2
+          //take everything before dp, skip dp, add chars until done, then dp, then rest
+          let mynwstr = mystr.substring(0, mydpindx);
+          for (let ki = 0; ki < mpow; ki++) mynwstr += mystr.charAt(mydpindx + 1 + ki);
+          mynwstr += "." + mystr.substring(mydpindx + 1 + mpow);
+          return mynwstr;
+        }
+      }
+    }
+    else if (mpow === 0) mystr = "1";
+    else
+    {
+      //the decimal point is negative, it needs to move left, need to do something similar to above
+      const absmpow = mpow*(-1);
+      if (mydpindx < 0 || mystr.length - 1 < mydpindx)
+      {
+        //there is no decimal point
+        const nwdpi = mystr.length + mpow;
+        //console.log("nwdpi = " + nwdpi);
+
+        if (absmpow < mystr.length) mystr = mystr.substring(0, nwdpi) + "." + mystr.substring(nwdpi);
+        else if (absmpow === mystr.length) return "0." + mystr;
+        else
+        {
+          const diff = absmpow - mystr.length;
+          let mynwstr = "0.";
+          for (let n = 0; n < diff; n++) mynwstr += "0";
+          mynwstr += "" + mystr;
+          return mynwstr;
+        }
+      }
+      else
+      {
+        //there is a decimal point
+        //the num digits before the decimal point is the index of dp
+        const strnodp = mystr.substring(0, mydpindx) + mystr.substring(mydpindx + 1);
+        const nwdpi = mydpindx - absmpow;
+        //console.log("nwdpi = " + nwdpi);
+
+        if (absmpow < mydpindx)
+        {
+          mystr = mystr.substring(0, nwdpi) + "." + mystr.substring(nwdpi, mydpindx) +
+            mystr.substring(mydpindx + 1);
+        }
+        else if (absmpow === mydpindx) return "0." + strnodp;
+        else
+        {
+          const diff = nwdpi*(-1);
+          let mynwstr = "0.";
+          for (let n = 0; n < diff; n++) mynwstr += "0";
+          mynwstr += "" + mystr;
+          return mynwstr;
+        }
+      }
+    }
+    return mystr;
+  }
+  function testMulValByPowTen()
+  {
+    console.log(mulValByPowOfTen(20.1, 1));//201
+    console.log(mulValByPowOfTen(20.1, 2));//2010
+    console.log(mulValByPowOfTen(20.12, 1));//201.2
+    console.log(mulValByPowOfTen("20.", 1));//200
+    console.log(mulValByPowOfTen(20, 1));//200
+    console.log(mulValByPowOfTen(20, 0));//1
+    console.log(mulValByPowOfTen(20, -1));//2 or 2.0
+    console.log(mulValByPowOfTen(20, -2));//0.2 or .2
+    console.log(mulValByPowOfTen(20, -3));//0.02 or .02
+    console.log(mulValByPowOfTen(20.1, -1));//2.01
+    console.log(mulValByPowOfTen(20.1, -2));//0.201 or .201
+    console.log(mulValByPowOfTen(20.1, -3));//0.0201 or .0201
+    console.log(mulValByPowOfTen(20.12, -1));//2.012
+  }
+
+  function convertTrueOrFalseArrayToString(marr)
+  {
+    if (isLetUndefinedOrNull(marr)) return null;
+    else return ((marr.length < 1) ? "" : marr.map((val) => (val ? "1" : "0")).join(""));
+  }
+
+  function subtractTwoDecimals(stra, strb)
+  {
+    // a - b
+    //    10,10,10,10,10
+    // 20.0 0 0 0 0
+    //-19.9 9 9 9 9
+    // 01 1 1 1 1 1 (must borrow at digit)
+    // 10 0 0 0 0 0 (diff a minus b is at least one)
+    // 10 0 0 0 0 0 (can borrow from digit)
+    // 10 0 0 0 0 0 (must borrow from digit)
+    // 10 0 0 0 0 0 (is at a section boundary)
+    // 11 1 1 1 1 0 (num times need to borrow)
+    // 2414 4 4 4 3 (num times borrow rule numbers)
+    // 00.0 0 0 0 1 (answer)
+
+    //-1,9,18,9,9,11,10 
+    //-1,10,8,9,9,11,10 
+    //     8,9,9,11,10
+    //     8,9,10,1,10
+    //     8,10,?,1,10  
+    //        1,10
+    // 20.090020
+    //-19.199999
+    // 10 000000 (diff a minus b digit is at least one)
+    // 01 101111 (init must borrow at digit)
+    // 10 010010 (can borrow from digit)
+    // 01 111111 (FINAL must borrow at digit)
+    // 10 000000 (is at a section boundary)
+    // 11 111110 (num times need to borrow)
+    // 241444443 (num times borrow rule numbers)
+    // 00.890021
+    // 2,10.10,19,10,10,12,10
+    //-1, 9. 1, 9, 9, 9, 9, 9
+    //-1, 1. 1, 1, 1, 1, 1, 0
+    // 0, 0. 8, 9, 0, 0, 2, 1
+
+    // a - b
+    // -1 10,10  8,10 0
+    // 20.10 90 5
+    //-19.11 02 0
+    // 01 01 01 0 (init must borrow at digit = is adigit < bdigit?)
+    // 10 00 10 1 (diff a minus b digit is at least one)
+    // 01 01 01 0 (diff b minus a digit is at least one)
+    // 01 11 01 0 (FINAL must borrow at digit = is adigit < bdigit? and what happens at 0)
+    // 10 10 10 1 (can borrow from digit = is 0 < top digit?, often when must borrow is 0, this is 1)
+    //(the only known exception is when both digits are zero, because you cannot borrow,
+    //but you don't need to; when must borrow is true, you may still be able to borrow from this)
+    // 10 00 10 0 (is at a section boundary = can borrow and is diff a minus b digit at least one)
+    // 11010 10 0 (num times need to borrow)
+    // 25125 23 2 (num times borrow rule numbers)
+    //  0.99 88 5
+    // 2,10.11,10,9,10,5
+    //-1, 9. 1, 1,0, 2,0
+    //-1, 1. 1, 0,1, 0,0
+    // 0, 0. 9, 9,8, 8,5
+
+
+    //must borrow at digit RULES:
+    //if at decimal point: 0
+    //if adigit < bdigit: 1
+    //if bdigit < adigit: 0
+    //if adigit === bdigit:
+    //move right until you find one of those cases above dictates these values
+    //(ignore the decimal point)
+    //if not found: 0
+
+    // ?????.???9999
+    //-?????.???9999
+    // ????? ???0000 (diff a minus b digit is at least one)
+    // ????? ???0000 (must borrow at digit)
+    // ????? ???1111 (can borrow from digit)
+    // ????? ???0000 (is at a section boundary)
+
+    // ?????.???99990
+    //-?????.???99991
+    // ????? ???00001 (init must borrow at digit)
+    // ????? ???00000 (diff a minus b digit is at least one)
+    // ????? ???11111 (FINAL must borrow at digit)
+    // ????? ???11110 (can borrow from digit)
+    // ????? ???00000 (is at a section boundary)
+    
+    
+    //is the num times need to borrow just a bit shift of the must borrow at
+    //(ignoring the decimal point)?
+    //
+    // 20.10 90 5
+    //-19.11 02 0
+    // 01 11 01 0 (final must borrow at)
+    // 11 10 10 0 (bit shift of that ignore dpt)
+    // 2,10.11,10 9,10 5 (add 10 to adigit if cannot subtract else keep adigit)
+    //-1, 9. 1, 1 0, 2 0 (bdigit)
+    //-1, 1. 1, 0 1, 0 0 (num times need to borrow at digit)
+    // 0, 0. 9, 9 8, 8 5 (answer)
+    
+    
+    //precondition: the decimal points line up and there are placeholder 0s present
+    //start from last digit on the string (string.length - 1)
+    //
+    //num times need to borrow:
+    //1. if at decimal point: 0; OTHERWISE:
+    //2. if we must not borrow at the digit: 0, but will be 1 on:
+    //-flow through rule OR next to last must borrow
+    //if we must borrow at the digit:
+    //3. -if this is the first one we must borrow at OR
+    // the first one we need to borrow at after a section boundary: 0;
+    //OTHERWISE:
+    //
+    //4. --if we must borrow at the next digit:
+    //
+    //---they are all 1s until we must not borrow from the digit.
+    //
+    //---they are all 1s until we can borrow from the digit. (HANDLED ABOVE IF MUST BORROW IS CORRECT)
+    //
+    //---if we can borrow from the next digit: 0 (DO NOT THINK THIS IS CORRECT)
+    //---if we cannot borrow from the immediate next digit: (DO NOT THINK THIS IS CORRECT)
+    //----they are all 1s until we can borrow from the digit, 0 (IGNORE THIS)
+    //
+    //if at a digit we must borrow from: 1
+    //(IE if we must borrow, but not found one we can use, until now)
+    //
+    //5. --if we must not borrow at the next digit (excluding decimal point):
+    //---if we can borrow from the next digit:
+    //----if immediately after the decimal point and borrowing before it -> 1; otherwise 0. 
+    //---if we cannot borrow from the next digit: 0.
+    //
+    //2. on the last one that we need to borrow at, the digit before is: 1
+    
+    //if you can borrow from the digit, it is most likely a 1.
+    //-Rule 3 is a known exception, but not the only exception.
+    //-Rule 4 will override this, but still make it a 1.
+    //-if must borrow at this, it is even more likely to be a 1.
+    //-if must not borrow at this, then it can be a 0.
+
+    //procedure to generate the answer
+    //if we need to borrow at the digit:
+    //  0 -> 10 - num times need to borrow - bdigit = ansdigit
+    //  2 -> 12 - num times need to borrow - bidigt = ansdigit
+    //... take orig adigit + 10 - num times need to borrow - bdigit = ansdigit
+    //if not do straight subtraction (num times need to borrow = 0): adigit - bdigit = ansdigit
+    console.log("stra = " + stra);
+    console.log("strb = " + strb);
+
+    if (stra.length === strb.length);
+    else
+    {
+      //assume the number of decimal places are the same
+      //so the difference is the numbers in front of it
+      //also assume a is the longer length
+      //because if b is longer then the answer is negative
+      let lendiff = stra.length - strb.length;
+      let nwstrb = "";
+      for (let n = 0; n < lendiff; n++) nwstrb += "0";
+      nwstrb += "" + strb;
+      return subtractTwoDecimals(stra, nwstrb);
+    }
+    console.log("FINAL stra = " + stra);
+    console.log("FINAL strb = " + strb);
+
+    let mustbrw = [];
+    //let numbrw = [];
+    let canbrw = [];
+    let atsecbound = [];
+    for (let i = 0; i < stra.length; i++)
+    {
+      if (stra.charAt(i) === '.')
+      {
+        mustbrw.push(false);
+        canbrw.push(false);
+        atsecbound.push(false);
+      }
+      else
+      {
+        let anum = Number(stra.charAt(i));
+        let bnum = Number(strb.charAt(i));
+        let mustbrwval = (anum < bnum);
+        mustbrw.push(mustbrwval);//if bnum =< anum, then: anum != 0 or bnum != 0
+        canbrw.push(mustbrwval ? (0 < anum) : (!((anum === 0) && (bnum === 0))));
+        //diff anum - bnum is at least one? and can borrow?
+        atsecbound.push(((bnum < anum) && (0 < anum)));
+      }
+      //numbrw.push(false);
+    }
+    //console.log("mustbrw = ", mustbrw);
+    //console.log("canbrw = ", canbrw);
+    let mustbrwstr = convertTrueOrFalseArrayToString(mustbrw);
+    let canbrwstr = convertTrueOrFalseArrayToString(canbrw);
+    let atsecbndstr = convertTrueOrFalseArrayToString(atsecbound);
+    console.log("INITL mbrw = " + mustbrwstr);
+    console.log("FINAL cbrw = " + canbrwstr);
+    console.log("FINAL sbnd = " + atsecbndstr);
+
+    // 20.090000
+    //-19.199999
+    // 01 101111 (init must borrow at)
+    // 10 010000 (can borrow from digit)
+    // 10 000000 (diff a minus b digit is at least one)
+    // 10 000000 (is at a section boundary)
+    // 01 111111 (final must borrow at)
+
+    //20.0000000
+    //-0.0000001
+    //00 0000001 (init must borrow at digit)
+    //10 0000000 (can borrow from digit)
+    //10 0000000 (diff a minus b digit is at least one)
+    //10 0000000 (is at a section boundary)
+    //01 1111111 (final must borrow at digit)
+
+    // 20.090020
+    //-19.199999
+    // 01 101111 (init must borrow at digit)
+    // 10 010010 (can borrow from digit)
+    // 10 000000 (diff a minus b digit is at least one)
+    // 10 000000 (is at a section boundary)
+    // 01 111111 (FINAL must borrow at digit)
+
+    // 20.090020
+    //-19.189999
+    // 01 101111 (init must borrow at digit)
+    // 10 010010 (can borrow from digit)
+    // 10 010000 (diff a minus b digit is at least one)
+    // 10 010000 (is at a section boundary)
+    // 01 101111 (FINAL must borrow at digit) (NO CHANGE)
+
+    //find the set that are equal then figure out what their values are supposed to be then set it
+    for (let i = 0; i < stra.length; i++)
+    {
+      if (mustbrw[i]);
+      else
+      {
+        if (stra.charAt(i) === '.');
+        else
+        {
+          let anum = Number("" + stra.charAt(i));
+          let bnum = Number("" + strb.charAt(i));
+          if (anum === bnum)
+          {
+            for (let k = i; k < stra.length; k++)
+            {
+              let setnewvals = false;
+              let nwval = false;
+              if (mustbrw[k])
+              {
+                //now set all of them from i to k to 1s
+                //now new i is k
+                setnewvals = true;
+                nwval = true;
+              }
+              else
+              {
+                if (stra.charAt(k) === '.');
+                else
+                {
+                  let tempanum = Number("" + stra.charAt(k));
+                  let tempbnum = Number("" + strb.charAt(k));
+                  if (tempanum === tempbnum)
+                  {
+                    if (k + 1 < stra.length);
+                    else
+                    {
+                      //now set all of them from i to k to 0s
+                      //now new i is k
+                      setnewvals = true;
+                      nwval = false;
+                    }
+                  }
+                  else
+                  {
+                    //now set all of them from i to k to 0s
+                    //now new i is k
+                    setnewvals = true;
+                    nwval = false;
+                  }
+                }
+              }
+              //console.log("setnewvals = " + setnewvals);
+              //console.log("nwval = " + nwval);
+
+              if (setnewvals)
+              {
+                for (let n = i; n < k + 1; n++)
+                {
+                  if (stra.charAt(n) === '.');
+                  else mustbrw[n] = nwval;
+                  //console.log("NEW mustbrw[" + n + "] = " + mustbrw[n]);
+                }
+                i = k;
+                //console.log("NEW i = " + i);
+
+                break;
+              }
+            }//end of k for loop
+          }
+          //else;//do nothing
+        }
+      }
+    }//end of i for loop
+    mustbrwstr = convertTrueOrFalseArrayToString(mustbrw);
+    console.log("FINAL mbrw = " + mustbrwstr);
+    console.log("FINAL cbrw = " + canbrwstr);
+    console.log("FINAL sbnd = " + atsecbndstr);
+
+    
+    //generate the num times borrow array here
+    
+    let dpti = stra.indexOf(".");
+    let isdptinotvalid = isNumberInvalid(dpti, 0, stra.length - 1);
+    console.log("dpti = " + dpti);
+    console.log("isdptinotvalid = " + isdptinotvalid);
+
+    //do the bit shift thing here
+    
+    //ignore the first one, and ignore the decimal point
+    let mynwstr = mustbrwstr.split("")
+      .map((val, indx) => (((indx === 0) || (indx === dpti)) ? "" : val))
+      .join("") + "0";
+    console.log("mynwstr = " + mynwstr);
+
+    if (isdptinotvalid);
+    else mynwstr = mynwstr.substring(0, dpti) + "0" + mynwstr.substring(dpti);
+    console.log("mynwstr = " + mynwstr);
+
+    let numbrw = mynwstr.split("").map((val) => (val === "1"));
+    console.log("numbrw = ", numbrw);
+
+    //throw new Error("NOT DONE YET 1-23-2025 10:43 PM MST!");
+
+
+    /*
+    //get first one must borrow from
+    //set the one before as true
+    let lastmustbrwi = -1;
+    for (let i = 0; i < stra.length; i++)
+    {
+      if (mustbrw[i])
+      {
+        if (0 < i)
+        {
+          lastmustbrwi = i - 1;
+          break;
+        }
+        else throw new Error("answer must not be negative!");
+      }
+      //else;//do nothing
+    }//end of i for loop
+    console.log("lastmustbrwi = " + lastmustbrwi);
+
+    letNumberMustBeValid(lastmustbrwi, 0, stra.length - 1, "lastmustbrwi");
+    
+    let isfirstbdgt = true;
+    for (let i = stra.length - 1; (i === 0 || 0 < i) && i < stra.length; i--)
+    {
+      console.log("i = " + i);
+      console.log("mustbrw[" + i + "] = " + mustbrw[i]);
+
+      if (stra.charAt(i) === '.')
+      {
+        console.log("RULE 1 HERE:");
+        numbrw[i] = false;//RULE 1
+      }
+      else if (i === lastmustbrwi)
+      {
+        console.log("RULE 2A HERE:");
+        numbrw[i] = true;//RULE 2 EXCEPTION
+      }
+      else
+      {
+        if (mustbrw[i])
+        {
+          if (0 < i)
+          {
+            console.log("isfirstbdgt = " + isfirstbdgt);
+  
+            if (isfirstbdgt)
+            {
+              //RULE 3
+              console.log("RULE 3 HERE:");
+              numbrw[i] = false;
+              isfirstbdgt = false;
+            }
+            else
+            {
+              console.log("mustbrw[" + (i - 1) + "] = " + mustbrw[i - 1]);
+              console.log("stra.charAt(" + (i - 1) + ") = " + stra.charAt(i - 1));
+              if (1 < i) console.log("mustbrw[" + (i - 2) + "] = " + mustbrw[i - 2]);
+              //else;//do nothing
+              
+              let mbrwbfr = ((stra.charAt(i - 1) === '.') ? mustbrw[i - 2] : mustbrw[i - 1]);
+              console.log("OLD mbrwbfr = " + mbrwbfr);
+
+              if (mbrwbfr);
+              else mbrwbfr = ((stra.charAt(i + 1) === '.') ? mustbrw[i + 2] : mustbrw[i + 1]);
+              console.log("NEW mbrwbfr = " + mbrwbfr);
+
+              if (mbrwbfr)
+              {
+                console.log("RULE 4 HERE:");
+                //find the one that we must not borrow from and set all to be true in this zone
+                for (let k = i; (k === 0 || 0 < k) && k < stra.length; k--)
+                {
+                  if (stra.charAt(k) === '.')
+                  {
+                    console.log("RULE 1 HERE:");
+                    numbrw[k] = false;
+                  }
+                  else numbrw[k] = true;
+                  console.log("NEW numbrw[" + k + "] = " + numbrw[k]);
+
+                  if (mustbrw[k]);
+                  else
+                  {
+                    if (k === lastmustbrwi)
+                    {
+                      console.log("RULE 2A HERE:");
+                      numbrw[k] = true;//RULE 2 EXCEPTION
+                    }
+                    else numbrw[k] = false;
+                    i = k;
+                    console.log("NEW numbrw[" + k + "] = " + numbrw[k]);
+                    console.log("NEW i = " + i);
+                    
+                    break;
+                  }
+                  //else;//do nothing
+                }//end of k for loop
+              }
+              else
+              {
+                //RULE 5
+                //we must borrow at current spot, but needs to be from before it
+                console.log("RULE 5 HERE:");
+                console.log("WE MUST BORROW AT CURRENT SPOT, BUT NOT AT SPOT BEFORE!");
+                console.log("canbrw[" + (i - 1) + "] = " + canbrw[i - 1]);
+
+                if (canbrw[i - 1])
+                {
+                  //if immediately after the decimal point, and borrowing before it, then 1; else 0
+                  if (i === dpti - 1) numbrw[i] = (mustbrw[dpti + 1] && canbrw[dpti - 1]);
+                  else numbrw[i] = false;
+                }
+                else numbrw[i] = false;
+              }
+            }
+          }
+          else throw new Error("answer must not be negative!");
+          console.log("NEW numbrw[" + i + "] = " + numbrw[i]);
+        }
+        else
+        {
+          //RULE 2 HERE
+          console.log("RULE 2B HERE:");
+
+          if (i === lastmustbrwi)
+          {
+            console.log("RULE 2A HERE:");
+            numbrw[i] = true;//RULE 2 EXCEPTION
+          }
+          //else;//do nothing
+          if (numbrw[i]);
+          else numbrw[i] = false;
+          console.log("NEW numbrw[" + i + "] = " + numbrw[i]);
+        }
+      }
+
+      if (atsecbound[i]) isfirstbdgt = true;
+      //else;//do nothing
+    }//end of i for loop*/
+    console.log("stra = " + stra);
+    console.log("strb = " + strb);
+    console.log("mbrw = " + mustbrwstr);
+    console.log("cbrw = " + canbrwstr);
+    console.log("sbnd = " + atsecbndstr);
+    let numborrowstr = convertTrueOrFalseArrayToString(numbrw);
+    //console.log("numbrw = ", numbrw);
+    console.log("nbrw = " + numborrowstr);
+
+    //generate the answer here and display strings here
+
+    // adigit if must borrow add 10 (the base for decimal system is 10) else keep it
+    //-bdigit
+    //-num times need to boorow at digit
+    //=answer digit
+    let ansstr = "";
+    let dispadigstra = "";
+    let dispbdigstrb = "";
+    let dispnumneedbrwstr = "";
+    let dispexagansstr = "";
+    for (let i = stra.length - 1; (i === 0 || 0 < i) && i < stra.length; i--)
+    {
+      if (stra.charAt(i) === ".")
+      {
+        ansstr = "." + ansstr;
+        dispadigstra = "." + dispadigstra;
+        dispbdigstrb = "." + dispbdigstrb;
+        dispnumneedbrwstr = "." + dispnumneedbrwstr;
+        dispexagansstr = "." + dispexagansstr;
+      }
+      else
+      {
+        let anum = Number("" + stra.charAt(i));
+        let bnum = Number("" + strb.charAt(i));
+        let brwnum = (numbrw[i] ? 1 : 0);
+        let smalldiff = (mustbrw[i] ? 10 : 0) - brwnum;
+        let resnum = (smalldiff + anum - bnum);
+        
+        //now generate the display strings here
+        let nwanum = anum + (mustbrw[i] ? 10 : 0);
+        dispadigstra = "" + nwanum + dispadigstra;
+        let spcornostr = (mustbrw[i] ? " " : "");
+        let nwbnumstr = "" + spcornostr + bnum;
+        dispbdigstrb = "" + nwbnumstr + dispbdigstrb;
+        let nwbrwnumstr = "" + spcornostr + brwnum;
+        dispnumneedbrwstr = nwbrwnumstr + dispnumneedbrwstr;
+        let nwansstr = "" + spcornostr + resnum;
+        dispexagansstr = nwansstr + dispexagansstr;
+        if (0 < i)
+        {
+          if (stra.charAt(i - 1) === '.');
+          else
+          {
+            dispadigstra = "," + dispadigstra;
+            dispbdigstrb = "," + dispbdigstrb;
+            dispnumneedbrwstr = "," + dispnumneedbrwstr;
+            dispexagansstr = "," + dispexagansstr;
+          }
+        }
+        //else;//do nothing
+        console.log("mustbrw[" + i + "] = " + mustbrw[i]);
+        console.log("anum = " + anum);
+        console.log("bnum = " + bnum);
+        console.log("brwnum = " + brwnum);
+        console.log("smalldiff = " + smalldiff);
+        console.log("resnum = " + resnum);
+
+        if (resnum < 0 || 9 < resnum) throw new Error("illegal value found and used for the resnum!");
+        else ansstr = "" + resnum + ansstr;
+      }
+    }//end of i for loop
+    console.log("RESULTS:");
+    console.log("stra = " + stra);
+    console.log("strb = " + strb);
+    console.log(" ans = " + ansstr);
+    console.log("mbrw = " + mustbrwstr);
+    console.log("cbrw = " + canbrwstr);
+    console.log("sbnd = " + atsecbndstr);
+    console.log("nbrw = " + numborrowstr);
+    console.log(" " + dispadigstra);
+    console.log("-" + dispbdigstrb);
+    console.log("-" + dispnumneedbrwstr);
+    console.log("=" + dispexagansstr);
+    
+    return ansstr;
+
+    // a - b
+    //-1 9,18,9,9,9,10
+    //-1 10,8,9,9,9,10
+    //-1 0,8,9,9,9,10
+    //   0,8,9,9,9,10
+    //   0,8,9,9,10,0
+    //   0,8,9,10,0,0
+    //   0,8,10,0,0,0 -> 0,0,10,10,10,10
+    // 20.090000
+    //-19.199999
+    // 01 101111 (init must borrow at)
+    // 10 010000 (can borrow from digit)
+    // 10 000000 (diff a minus b digit is at least one)
+    // 01 111111 (FINAL must borrow at)
+    // 10 000000 (is at a section boundary)
+    // 11 111110 (num times need to borrow)
+    // 241444443 (num times borrow rule numbers)
+    // 00.890001 (answer)
+    // 2,10.10,19,10,10,10,10
+    //-1, 9. 1, 9, 9, 9, 9, 9
+    //-1, 1. 1, 1, 1, 1, 1, 0
+    // 0  0. 8, 9, 0, 0, 0, 1
+
+    //num times need to borrow:
+    //if we must not borrow at the digit:
+    //-often this is also 0, except on the last one we need to borrow from then it is 1
+    //-there is another exception when borrowing flows through this these are 1s
+    //if we must borrow at the digit:
+    //-if this is the first one we must borrow at: 0
+    //-otherwise:
+    //--if we can borrow from the or the immediate next digit: 0
+    //--if we cannot borrow from the immediate next digit:
+    //---they are all 1s until we can borrow from the digit, 0
+    //if at a digit we must borrow from: 1
+    //(IE if we must borrow, but not found one we can use, until now)
+
+    //20.0000000
+    //-0.0000001
+    //00 0000001 (init must borrow at digit)
+    //10 0000000 (diff a minus b digit is at least one)
+    //01 1111111 (FINAL must borrow at digit)
+    //10 0000000 (can borrow from digit)
+    //10 0000000 (must borrow from digit)
+    //10 0000000 (is at a section boundary)
+    //11 1111110 (num times need to borrow)
+    //2414444443 (num times borrow rule numbers)
+    //2,10.10,10,10,10,10,10,10
+    //0, 0. 0, 0, 0, 0, 0, 0, 1
+    //1, 1. 1, 1, 1, 1, 1, 1, 0
+    //1, 9. 9, 9, 9, 9, 9, 9, 9
+    //19.9999999 (answer)
+
+    // a - b
+    // 1,9 10,8,9,9,11,10
+    // 1,10 0,8,9,9,11,10
+    // 1,0 0,8,9,9,11,10
+    // 0,0 0,8,9,9,11,10
+    // 0,0 0,8,9,10,1,10
+    // 0,0 0,8,10,0,1,10
+    // 0,0 0,8,0,0,1,10
+    // 0,0 0,0,0,0,1,10
+    // 0,0 0,0,0,0,1,0
+    // 20.090020
+    //-19.189999
+    // 01 101111 (must borrow at digit)
+    // 10 010000 (diff a minus b digit is at least one)
+    // 10 010010 (can borrow from digit)
+    // 10 010010 (must borrow from digit)
+    // 10 010000 (is at a section boundary = is diff at least one and can borrow from digit?)
+    // 22 211111 (section numbers)
+    // 110011110 (num times need to borrow)
+    //    10     what it currently does.
+    //    ??     why are those two what they are?
+    // 251??4443 (num times need to borrow rule numbers)
+    // 2,10.10,9,10,10,12,10 (adigit if must borrow add 10 else keep orig)
+    //-1, 9. 1,8, 9, 9, 9, 9 (bdigit above)
+    //-1, 1. 0,1, 1, 1, 1, 0 (num times must borrow above)
+    // 0, 0. 9,0, 0, 0, 2, 1 (answer)
+  }
+
+  function addOrSubtractTwoStrings(stra, strb, useadd)
+  {
+    //first we must line up the decimal points if present
+    //then we add or subtract the values as we would using normal addition
+    console.log("stra = " + stra);
+    console.log("strb = " + strb);
+    console.log("useadd = " + useadd);
+
+    letMustBeANumber(stra, "stra");
+    letMustBeANumber(strb, "strb");
+    letMustBeBoolean(useadd, "useadd");
+
+    let dptistra = stra.indexOf(".");
+    let dptistrb = strb.indexOf(".");
+    let strahasnodpt = isNumberInvalid(dptistra, 0, stra.length - 1);
+    let strbhasnodpt = isNumberInvalid(dptistrb, 0, strb.length - 1);
+    //if subracting and a < b, then return -1 * subtractTwoStrings(b, a)
+    //if the result of the subtraction is also negative, then positive
+    //if subtracting and b is negative return addTwoStrings(a, b)
+    //if subtracting and a and b are the same return 0
+
+    if (useadd)
+    {
+      //decimals need to be the same on either side
+      if (strahasnodpt || strbhasnodpt);//handled below
+      else
+      {
+        let numdgtsaftrdpa = stra.length - dptistra - 1;
+        let numdgtsaftrdpb = strb.length - dptistrb - 1;
+        if (numdgtsaftrdpa === numdgtsaftrdpb);
+        else
+        {
+          //calibrate to whichever has more
+          let bhasmore = (numdgtsaftrdpa < numdgtsaftrdpb);
+          let diff = (bhasmore ? numdgtsaftrdpb - numdgtsaftrdpa : numdgtsaftrdpa - numdgtsaftrdpb);
+          let nwstrb = "" + strb;
+          let nwstra = "" + stra;
+          if (bhasmore) for (let n = 0; n < diff; n++) nwstra += "0";
+          else for (let n = 0; n < diff; n++) nwstrb += "0";
+          console.log("nwstra = " + nwstra);
+          console.log("nwstrb = " + nwstrb);
+
+          if (nwstra.substring(dptistra + 1).length === nwstrb.substring(dptistrb + 1).length);
+          else throw new Error("the new strings must be the same length, but they were not!");
+          return addOrSubtractTwoStrings(nwstra, nwstrb, useadd);
+        }
+      }
+    }
+    else
+    {
+      if (stra === strb) return "0";
+      //else;//do nothing
+      let bminusindx = strb.indexOf("-");
+      let bhasnominus = isNumberInvalid(bminusindx, 0, strb.length - 1);
+      if (bhasnominus);
+      else return addOrSubtractTwoStrings(stra, strb.substring(1), true);//add these
+
+      let numa = Number(stra);
+      let numb = Number(strb);
+      if (numa < numb)
+      {
+        //3-20.1=-1*(20.1-3)=-17.1; -3-20.1=-1(20.1-(-3))
+        let tsubres = addOrSubtractTwoStrings(strb, stra, useadd);
+        let tminusindex = tsubres.indexOf("-");
+        let thasnominus = isNumberInvalid(tminusindex, 0, tsubres.length - 1);
+        return (thasnominus ? "-" + tsubres : tsubres.substring(1));
+      }
+      //else;//will be handled below
+
+      //20.1-3 if b has no decimal point easily handled
+      //if a has no decimal point need to do something here...
+      if (strbhasnodpt);
+      else
+      {
+        let numdgtsaftrdpb = strb.length - dptistrb - 1;
+        let nwstra = "" + stra;
+        console.log("numdgtsaftrdpb = " + numdgtsaftrdpb);
+
+        if (strahasnodpt)
+        {
+          nwstra += ".";
+          for (let n = 0; n < numdgtsaftrdpb; n++) nwstra += "0";
+          console.log("nwstra = " + nwstra);
+
+          if (nwstra.substring(stra.length + 1).length === numdgtsaftrdpb);
+          else throw new Error("the new strings must be the same length, but they were not!");
+          return addOrSubtractTwoStrings(nwstra, strb, useadd);
+        }
+        else
+        {
+          //may need to make sure that they have the same number of digits
+          //both have decimal points
+          let numdgtsaftrdpa = stra.length - dptistra - 1;
+          console.log("numdgtsaftrdpa = " + numdgtsaftrdpa);
+
+          if (numdgtsaftrdpa === numdgtsaftrdpb);
+          else
+          {
+            //calibrate to whichever has more
+            let bhasmore = (numdgtsaftrdpa < numdgtsaftrdpb);
+            let diff = (bhasmore ? numdgtsaftrdpb - numdgtsaftrdpa : numdgtsaftrdpa - numdgtsaftrdpb);
+            let nwstrb = "" + strb;
+            if (bhasmore) for (let n = 0; n < diff; n++) nwstra += "0";
+            else for (let n = 0; n < diff; n++) nwstrb += "0";
+            console.log("nwstra = " + nwstra);
+            console.log("nwstrb = " + nwstrb);
+
+            if (nwstra.substring(dptistra + 1).length === nwstrb.substring(dptistrb + 1).length);
+            else throw new Error("the new strings must be the same length, but they were not!");
+            return addOrSubtractTwoStrings(nwstra, nwstrb, useadd);
+          }
+        }
+      }
+    }
+    console.log("strahasnodpt = " + strahasnodpt);
+    console.log("strbhasnodpt = " + strbhasnodpt);
+
+    if (strahasnodpt || strbhasnodpt)
+    {
+      //one or both do not have the decimal point
+      if (strahasnodpt)
+      {
+        //a has no decimal point
+        if (strbhasnodpt) return (useadd ? Number(stra) + Number(strb) : Number(stra) - Number(strb));
+        else
+        {
+          //see below...
+          //3+20.1=23.1 or 3-20.1=(-1)(20.1-3)=-17.1
+        }
+      }
+      else
+      {
+        //b does not have the decimal point since a does
+        //20.1+3=23.1; 3.1-20=(-1)*(20-3.1)=-16.9
+        //we take the one with the decimal point get the number
+        //get the number of the other one
+        //add the numbers
+        //then mush the rest of the original to it
+        //on subtraction could have weird results
+        //for the subtraction could have to borrow if do not have the place...
+        //20.0-3.1=20-3=17.(0-1)=17.-1=16.9
+        //the math does not round for integers
+        //we need to do the last digits first...
+        //once they are taken care of, then the next and so on...
+      }
+
+      if (useadd)
+      {
+        //for adding
+        //one does and the other does not
+        //take the one that does and get the whole number
+        //now add that to the one that does not
+        //take the rest of that decimal and just add it to the answer string
+        if (strahasnodpt)
+        {
+          return "" + (Number(stra) + Number(strb.substring(0, dptistrb))) + strb.substring(dptistrb);
+        }
+        else
+        {
+          return "" + (Number(strb) + Number(stra.substring(0, dptistra))) + stra.substring(dptistra);
+        }
+      }
+      else
+      {
+        //one does and the other does not, this will be the case of 20.1-3 where b does not
+        //3.1-20=?; 3.1=?+20 ?+20-3.1=0 ?+16.9=0 ?=-16.9
+        return "" + (Number(stra.substring(0, dptistra)) - Number(strb)) + stra.substring(dptistra);
+      }
+    }
+    else
+    {
+      //both have decimal points
+      //if subtracting, both will have the same number of digits after the decimal point
+      //if subtracting, b will never be greater than a here
+      // 19 999999991 (final borrowing string)
+      // 19 999999910                     -1  9,9,9,9,9,9,9,9,10
+      // 19 999999100                     -1  9,9,9,9,9,9,9,10,0
+      // 19 999991000                     -1  9,9,9,9,9,9,10,0,0
+      // 19 999910000                     -1  9,9,9,9,9,10,0,0,0
+      // 19 999100000                     -1  9,9,9,9,10,0,0,0,0
+      // 19 991000000                     -1  9,9,9,10,0,0,0,0,0
+      // 19 910000000                     -1  9,9,10,0,0,0,0,0,0
+      // 19 100000000                     -1  9,10,0,0,0,0,0,0,0
+      // 11 000000000                     -1 10,0,0,0,0,0,0,0,0
+      // 20.000000000 (original numbers)  20.000000000
+      //-19.999999999                    -19.999999999
+      //  0.000000001                      0.000000001
+
+      //20.1+3.2=23.3
+      //adding decimals line up the dpts
+      //20.1
+      //+3.2
+      //23.3
+
+      // 1.111111110(final carrying string)
+      //20.000000001
+      //+0.999999999
+      //21.000000000 answer
+      //012345678901 indexes
+      //0         1
+      console.log("BOTH HAVE DECIMAL POINTS!");
+
+      let ansstr = "";
+      let numdgtsaftrdpa = stra.length - dptistra - 1;
+      console.log("numdgtsaftrdpa = " + numdgtsaftrdpa);
+      
+      if (useadd)
+      {
+        let carryval = 0;
+        for (let n = numdgtsaftrdpa; (0 < n && n < numdgtsaftrdpa + 1); n--)
+        {
+          let strai = dptistra + n;
+          let strbi = dptistrb + n;
+          //console.log("n = " + n);
+          //console.log("strai = " + strai);
+          //console.log("strbi = " + strbi);
+          //console.log("stra.length = " + stra.length);
+          //console.log("strb.length = " + strb.length);
+          //console.log("stra.charAt(" + strai + ") = " + stra.charAt(strai));
+          //console.log("strb.charAt(" + strbi + ") = " + strb.charAt(strbi));
+          //console.log("OLD carryval = " + carryval);
+
+          let tempres = Number("" + stra.charAt(strai)) + Number("" + strb.charAt(strbi)) + carryval;
+          let tempresstr = "" + tempres;
+          //console.log("tempres = " + tempres);
+
+          ansstr = "" + ((tempres < 10) ? tempresstr : tempresstr.charAt(1)) + ansstr;
+          carryval = ((9 < tempres) ? tempres - 9 : 0);
+          //console.log("NEW ansstr = " + ansstr);
+          //console.log("NEW carryval = " + carryval);
+        }//end of n for loop
+        ansstr = "." + ansstr;
+        //console.log("NEW ansstr = " + ansstr);
+        //console.log("FINAL carryval = " + carryval);
+
+        //need to handle the whole numbers here plus remaining carry on value
+        let bgnums = (Number(stra.substring(0, dptistra)) + Number(strb.substring(0, dptistrb)) +
+          carryval);
+        //console.log("bgnums = " + bgnums);
+
+        return "" + bgnums + ansstr;
+      }
+      else
+      {
+        //need to subtract these two decimals here
+        return subtractTwoDecimals(stra, strb);
+        /*
+        let borrowarr = [];
+        for (let n = 0; n < numdgtsaftrdpa; n++) borrowarr.push(0);
+        let haveborrowedbefore = false;
+        let wnumdiffoffset = 0;
+        for (let n = numdgtsaftrdpa; (0 < n && n < numdgtsaftrdpa + 1); n--)
+        {
+          let strai = dptistra + n;
+          let strbi = dptistrb + n;
+          console.log("n = " + n);
+          console.log("strai = " + strai);
+          console.log("strbi = " + strbi);
+          console.log("stra.length = " + stra.length);
+          console.log("strb.length = " + strb.length);
+          console.log("stra.charAt(" + strai + ") = " + stra.charAt(strai));
+          console.log("strb.charAt(" + strbi + ") = " + strb.charAt(strbi));
+          console.log("borrowarr[" + (n - 1) + "] = " + borrowarr[n - 1]);
+          console.log("haveborrowedbefore = " + haveborrowedbefore);
+          //do something here...
+          let anum = Number(stra.charAt(strai));
+          let bnum = Number(strb.charAt(strbi));
+          if (haveborrowedbefore)
+          {
+            console.log("WE HAVE BORROWED BEFORE!");
+
+            anum = borrowarr[n - 1];
+            if (anum < bnum)
+            {
+              //still need to borrow...
+              console.log("STILL NEED TO BORROW!");
+              throw new Error("NOT SURE WHAT TO DO HERE!");
+            }
+            else
+            {
+              console.log("DO NOT NEED TO BORROW HERE!");
+              ansstr = "" + (anum - bnum) + ansstr;
+            }
+          }
+          else
+          {
+            //have not borrowed before
+            console.log("WE HAVE NOT BORROWED BEFORE!");
+
+            if (anum < bnum)
+            {
+              console.log("NEED TO BORROW!");
+              //initialize the borrow array...
+              //if have to borrow outside of the array set the whole num diff by - 1
+              //GIVEN: intially you need to borrow because Adigit - Bdigit < 0 IE Adigit < Bdigit
+              //IF 0 < prevAdigit you can borrow from it, if not you need to borrow from the
+              //previous one, then initiate all of them in the range... 
+              for (let k = n - 1; (k === 0 || 0 < k) && k < numdgtsaftrdpa; k--)
+              {
+                console.log("k = " + k);
+                
+                let initbarrnow = false;
+                if (k === 0)
+                {
+                  //borrow from the whole number then
+                  //initialize the borrow array
+                  wnumdiffoffset = 1;
+                  initbarrnow = true;
+                }
+                else if (0 < k)
+                {
+                  let tempstrai = dptistra + k;
+                  console.log("tempstrai = " + tempstrai);
+                  console.log("stra.charAt(" + tempstrai + ") = " + stra.charAt(tempstrai));
+
+                  let tempanum = Number(stra.charAt(tempstrai));
+                  if (0 < tempanum)
+                  {
+                    //can borrow from this
+                    console.log("can borrow from this!");
+                    initbarrnow = true;
+                  }
+                  //else;//do nothing cannot borrow from this
+                }
+                else throw new Error("k index must not be negative!");
+                console.log("initbarrnow = " + initbarrnow);
+                console.log("wnumdiffoffset = " + wnumdiffoffset);
+
+                if (initbarrnow)
+                {
+                  for (let i = k; i < n + 1; i++)
+                  {
+                    console.log("i = " + i);
+                    console.log("k = " + k);
+                    console.log("n = " + n);
+
+                    if (i === 0)
+                    {
+                      console.log("NEED TO HANDLE THE i IS ZERO CASE!");
+
+                      //since i or k was zero, the first borrowarr item is going to be 10 + val
+                      //the val being the digit on A at that spot
+                      borrowarr[0] = 10 + Number(stra.charAt(dptistra + i + 1));
+                      console.log("NEW borrowarr[0] = " + borrowarr[0]);
+                    }
+                    else if (i === k)
+                    {
+                      console.log("NEED TO HANDLE THE i IS K, BUT MORE THAN ZERO CASE HERE!");
+                      
+                      let canum = Number(stra.charAt(dptistra + i));
+                      console.log("canum = " + canum);
+
+                      borrowarr[i - 1] = ((canum === 0) ? 10 + canum : canum - 1);
+                      console.log("NEW borrowarr[" + (i - 1) + "] = " + borrowarr[i - 1]);
+
+                      if (i + 1 === n)
+                      {
+                        console.log("OUR NEXT ONE IS THE ONE WE ARE LOOKING FOR!");
+
+                        if (0 < borrowarr[i - 1])
+                        {
+                          borrowarr[i] = 10 + Number(stra.charAt(dptistra + i + 1));
+                          console.log("NEW borrowarr[" + (i - 1) + "] = " + borrowarr[i - 1]);
+                          console.log("NEW borrowarr[" + i + "] = " + borrowarr[i]);
+                        }
+                        else throw new Error("THIS CASE SHOULD NOT HAPPEN HERE!");
+                      }
+                      //else;//do nothing
+                    }
+                    else
+                    {
+                      console.log("NEED TO HANDLE THE WHEN i IS MORE THAN ZERO CASE HERE!");
+                      
+                      let ctempanum = Number(stra.charAt(dptistra + i));
+                      console.log("ctempanum = " + ctempanum);
+
+                      //if we still need to borrow from this, then ?;
+                      //if we do not need to borrow from this, then ?;
+                      if (i === n)
+                      {
+                        console.log("MADE IT BACK TO OUR ORIGINAL PLACE!");
+                        console.log("borrowarr[" + (i - 1) + "] = " + borrowarr[i - 1]);
+                        console.log("bnum = " + bnum);
+                        if (borrowarr[i - 1] < bnum)
+                        {
+                          throw new Error("borrowarr not set correctly because we ended up with " +
+                            "a negative answer!");
+                        }
+                        //done do nothing here loop will exit
+                        ansstr = "" + (borrowarr[i - 1] - bnum) + ansstr;
+                      }
+                      else
+                      {
+                        console.log("NOT AT OUR ORIGINAL PLACE!");
+                        console.log("OLD borrowarr[" + (i - 1) + "] = " + borrowarr[i - 1]);
+
+                        //not at our original place and not at i === k
+                        if (0 < borrowarr[i - 1])
+                        {
+                          borrowarr[i - 1] = borrowarr[i - 1] - 1;
+                          borrowarr[i] = 10 + ctempanum;
+                          console.log("NEW borrowarr[" + (i - 1) + "] = " + borrowarr[i - 1]);
+                          console.log("NEW borrowarr[" + i + "] = " + borrowarr[i]);
+                        }
+                        else throw new Error("THIS CASE SHOULD NOT HAPPEN HERE!");
+                      }
+                    }
+                  }//end of i for loop
+                  console.log("borrowarr = ", borrowarr);
+                  console.log("NEW ansstr = " + ansstr);
+                  break;
+                }
+                //else;//do nothing
+              }//end of k for loop
+              if (haveborrowedbefore);
+              else haveborrowedbefore = true;
+            }
+            else
+            {
+              //do not need to borrow
+              console.log("DO NOT NEED TO BORROW!");
+              ansstr = "" + (anum - bnum) + ansstr;
+            }
+          }
+          console.log("NEW ansstr = " + ansstr);
+        }//end of n for loop
+        ansstr = "." + ansstr;
+        console.log("NEW ansstr = " + ansstr);
+        console.log("wnumdiffoffset = " + wnumdiffoffset);
+        
+        //do something here to finish building the answer and return it.
+        let wnumsdiff = (Number(stra.substring(0, dptistra)) - Number(strb.substring(0, dptistrb))) -
+          wnumdiffoffset;
+        console.log("wnumsdiff = " + wnumsdiff);
+        
+        ansstr = "" + wnumsdiff + ansstr;
+        return ansstr;//*/
+      }
+    }
+  }
+  function addTwoStrings(stra, strb) { return addOrSubtractTwoStrings(stra, strb, true); }
+  function subtractTwoStrings(stra, strb) { return addOrSubtractTwoStrings(stra, strb, false); }
+  
+  function verifyAddOrSubtractingResults(stra, strb, ansarr, useadd, usedecs=false)
+  {
+    letMustBeBoolean(useadd, "useadd");
+    letMustBeBoolean(usedecs, "usedecs");
+    letMustNotBeEmpty(ansarr, "ansarr");
+    const funcname = (useadd ? addTwoStrings : (usedecs ? subtractTwoDecimals : subtractTwoStrings));
+    const resval = "" + funcname(stra, strb);
+    const addsubstr = (useadd ? "add" : "subtract");
+    const resisare = (ansarr.length === 1 ? " is" : "s are");
+    console.log("result of " + addsubstr + "ing " + stra + " and " + strb + " is " + resval +
+      " and the expected result" + resisare + " " + ansarr + ".");
+    let ansfnd = false;
+    for (let n = 0; n < ansarr.length; n++)
+    {
+      if (resval === ansarr[n])
+      {
+        ansfnd = true;
+        return true;
+      }
+      //else;//do nothing
+    }
+    if (ansfnd) return true;
+    else throw new Error("the results must match!");
+  }
+  function verifyAddingResults(stra, strb, ansarr)
+  {
+    return verifyAddOrSubtractingResults(stra, strb, ansarr, true, false);
+  }
+  function verifySubtractingResults(stra, strb, ansarr, usedecs=false)
+  {
+    return verifyAddOrSubtractingResults(stra, strb, ansarr, false, usedecs);
+  }
+  function testAddOrSubtractTwoStrings()
+  {
+    verifyAddingResults("20.1", "3", ["23.1"]);
+    verifyAddingResults("3", "20.1", ["23.1"]);
+    verifyAddingResults("20.1", "3.0", ["23.1"]);
+    verifyAddingResults("20.1", "3.9", ["24.0", "24"]);
+    verifyAddingResults("20", "0.000000001", ["20.000000001"]);
+    verifyAddingResults("20.0", "0.000000001", ["20.000000001"]);
+    verifyAddingResults("20.000000001", "0.999999999", ["21.000000000", "21.0", "21"]);
+    //subtraction now
+    verifySubtractingResults("20.7", "3.6", ["17.1"], false);
+    verifySubtractingResults("20.1", "3", ["17.1"], false);
+    verifySubtractingResults("200", "31", ["169"], false);
+    verifySubtractingResults("200", "31", ["169"], true);
+    //200
+    //-31
+    //100 (diff a minus b is at least one)
+    //011 (must borrow at digit)
+    //100 (can borrow from digit)
+    //100 (must borrow from digit)
+    //110 (num times need to borrow at digit)
+    //2,10,10
+    //0, 3, 1
+    //1, 1, 0
+    //1, 6, 9
+    verifySubtractingResults("3.1", "20", ["-16.9"], false);
+    verifySubtractingResults("20", "3.1", ["16.9"], false);
+    verifySubtractingResults("3.1", "20.0", ["-16.9"], false);
+    verifySubtractingResults("20.0", "3.1", ["16.9"], false);
+    verifySubtractingResults("20", "0.000000001", ["19.999999999"], false);
+    verifySubtractingResults("20.000000000", "0.000000001", ["19.999999999"], false);
+    verifySubtractingResults("20.090020", "19.189999", ["00.900021", "0.900021"], false);
+    verifySubtractingResults("20.090020", "19.199999", ["00.890021", "0.890021"], false);
+    verifySubtractingResults("20.10905", "19.11020", ["0.99885", "00.99885"], false);
+    // -1 10,10,8,10,0
+    // -1 0,10,8,10,0
+    //    0,10,8,10,0 (then the 10 was added to the other place)
+    //    0,0,8,10,0 (the 1 turned into a 0, that is why this is the same)
+    //    0,0,8,10,0
+    //    0,0,8,0,0
+    // 20.10905
+    //-19.11020
+    //  0.99885
+    // 01 01010 (init must borrow at digit)
+    // 01 11010 (FINAL must borrow at digit)
+    // 10 00101 (diff a minus b digit is at least one)
+    // 10 10101 (can borrow from digit)
+    // 10 00101 (at a section boundary)
+    // 11 10100 (num times need to borrow)
+    // 2,10.11,10,9,10,5
+    //-1, 9. 1, 1,0, 2,0
+    //-1, 1  1, 0,1, 0,0
+    // 0, 0. 9, 9,8, 8,5
+    verifySubtractingResults("20.0905", "19.1020", ["0.9885", "00.9885"], false);
+    // -1 10,8,10,0
+    // -1 0,8,10,0
+    //    0,8,10,0
+    //    0,8,0,0
+    // 20.0905
+    //-19.1020
+    //  0.9885
+    // 10 0101 (diff a minus b is at least one)
+    // 01 1010 (must borrow at digit)
+    // 10 0101 (can borrow from digit)
+    // 10 0101 (at a section boundary)
+    // 11 0100 (num times need to borrow at digit)
+    // 2,10.10,9,10,5
+    //-1, 9. 1,0, 2,0
+    //-1, 1. 0,1, 0,0
+    //=0, 0. 9,8, 8,5
+    throw new Error("NEED TO CHECK RESULTS NOW!");
+  }
+
+  function genRowsRepeatUntil(snum, divnum, tenmultiples, prevans=0, stopatrmdr=false, numdcs=15)
+  {
+    console.log("snum = " + snum);
+    console.log("divnum = " + divnum);
+    console.log("stopatrmdr = " + stopatrmdr);
+    console.log("numdcs = " + numdcs);
+    if (divnum === 0 || divnum === "0") throw new Error("cannot divide by zero!");
+    if (snum === 0 || snum === "0") return [genMinusRow(0), genAnswerRow(0)];
+    else if (Number(divnum) === Number(snum)) return [genMinusRow(divnum), genAnswerRow(0)];
+    else if (Number(snum) < 0) throw new Error("the start number must not be negative!");
+    else
+    {
+      if (tenmultiples === undefined || tenmultiples === null || tenmultiples.length != 10)
+      {
+        throw new Error("tenmultiples must not be empty null or undefined and must have 10 items " +
+          "on it, but it did not!");
+      }
+      //else;//do nothing
+
+      //125
+      //012
+      let snumstr = "" + snum;
+      let dptindxonsnum = snumstr.indexOf(".");
+      console.log("dptindxonsnum = " + dptindxonsnum);
+
+      let crosseddpt = false;
+      for (let k = 0; k < snumstr.length; k++)
+      {
+        let mysubsnumstr = null;
+        if (k + 1 < snumstr.length) mysubsnumstr = snumstr.substring(0, k + 1);
+        else mysubsnumstr = snumstr.substring(0);
+        console.log("mysubsnumstr = " + mysubsnumstr);
+
+        //going over the decimal point is a problem which we need to deal with
+        if (-1 < dptindxonsnum && k === dptindxonsnum)
+        {
+          //crosses over the decimal point
+          crosseddpt = true;
+          if (stopatrmdr) return [genMinusRow(0), genAnswerRow(snum)];
+          else console.log("crossed the decimal point at k = " + k + "!");
+          //else;//do nothing answer has 0.something in it
+        }
+        else
+        {
+          //are any multiples of divnum less than the digits if so use the max
+          console.log("crosseddpt = " + crosseddpt);
+
+          if (crosseddpt)
+          {
+            mysubsnumstr = mysubsnumstr.substring(0, dptindxonsnum) +
+              mysubsnumstr.substring(dptindxonsnum + 1);
+            console.log("NEW mysubsnumstr = " + mysubsnumstr);
+          }
+          //else;//do nothing
+          let mydigsnum = Number(mysubsnumstr);
+          let canuseatleastone = false;
+          let mxusei = -1;
+          for (let m = 0; m < tenmultiples.length; m++)
+          {
+            if (mydigsnum < tenmultiples[m])
+            {
+              if (0 < m)
+              {
+                mxusei = m - 1;
+                canuseatleastone = true;
+              }
+              //else;//do nothing
+              break;
+            }
+            else
+            {
+              //tenmultiples[m] <= mydigsnum
+              if (canuseatleastone);
+              else canuseatleastone = true;
+              if (mxusei < m) mxusei = m;
+              //else;//do nothing
+            }
+          }//end of m for loop
+          console.log("mydigsnum = " + mydigsnum);
+          console.log("canuseatleastone = " + canuseatleastone);
+          console.log("mxusei = " + mxusei);
+
+          if (canuseatleastone)
+          {
+            if (mxusei < 0 || tenmultiples.length - 1 < mxusei)
+            {
+              throw new Error("mxusei is invalid because we claimed to be able to use " +
+                "one either that or the claim is wrong!");
+            }
+            //else;//do nothing
+          }
+          else
+          {
+            if (mxusei < 0 || tenmultiples.length - 1 < mxusei);
+            else throw new Error("claimed to not to be able to use it, but the mxusei is invalid!");
+          }
+          if (canuseatleastone)
+          {
+            console.log("k = " + k);
+            console.log("mysubsnumstr = " + mysubsnumstr);
+            console.log("dptindxonsnum = " + dptindxonsnum);
+            console.log("multipletobeused = tenmultiples[" + mxusei + "] = " + tenmultiples[mxusei]);
+            console.log("(mxusei + 1) = " + (mxusei + 1));
+
+            //determine the power of 10 to be used in the answer and this
+            //well what is the diff from dp
+            //note: tenmultiples will not have a dp
+            let diff = dptindxonsnum - k;
+            console.log("diff = " + diff);
+            
+            //commented for storage error made my own method
+            //const myanspten = Math.pow(10, diff);
+            //console.log("myanspten = " + myanspten);
+            //console.log(tenmultiples[mxusei] * myanspten);
+            //console.log((mxusei + 1) * myanspten);//does not get stored right
+
+            let mynwtmpstr = mulValByPowOfTen(tenmultiples[mxusei], diff);
+            let mynwansptstr = mulValByPowOfTen((mxusei + 1), diff);
+            console.log("mynwtmpstr = " + mynwtmpstr);
+            console.log("mynwansptstr = " + mynwansptstr);
+
+            let nwsnum = Number(snum) - Number(mynwtmpstr);
+            let nwrws = [genMinusRow(mynwtmpstr), genAnswerRow(nwsnum)];
+            let nwansstr = ((prevans === 0 || prevans === "0") ? mynwansptstr :
+              Number(prevans) + Number(mynwansptstr));
+            console.log("OLD snum = " + snum);
+            console.log("nwsnum = " + nwsnum);
+            console.log("nwansstr = " + nwansstr);
+            debugger;
+            let mytemprws = genRowsRepeatUntil(nwsnum, divnum, tenmultiples,
+              nwansstr, stopatrmdr, numdcs);
+            mytemprws.forEach((rwval) => nwrws.push(rwval));
+            return nwrws;
+          }
+          //else;//do nothing
+        }
+      }//end of k for loop
+      throw new Error("NOT DONE YET...!");
+    }
+  }
+
+  function newGenRows(snum, divnum, isfcall=true, stopatrmdr=false, numdcs=15)
+  {
+    console.log("snum = " + snum);
+    console.log("divnum = " + divnum);
+    console.log("stopatrmdr = " + stopatrmdr);
+    console.log("numdcs = " + numdcs);
+    if (divnum === 0 || divnum === "0") throw new Error("cannot divide by zero!");
+    if (snum === 0 || snum === "0") return [genMinusRow(0), genAnswerRow(0)];
+    else if (Number(divnum) === Number(snum)) return [genMinusRow(divnum), genAnswerRow(0)];
+    else if (Number(snum) < 0)
+    {
+      //still need to multiply the answer by negative 1
+      return newGenRows(snum * (-1), divnum, true, stopatrmdr, numdcs);
+    }
+    else
+    {
+      let mydivnumstr = "" + divnum;
+      let mysnumstr = "" + snum;
+      console.log("mysnumstr = " + mysnumstr);
+      console.log("mydivnumstr = " + mydivnumstr);
+      console.log("mysnumstr.length = " + mysnumstr.length);
+      console.log("mydivnumstr.length = " + mydivnumstr.length);
+
+      let deptindx = mydivnumstr.indexOf(".");
+      console.log("deptindx = " + deptindx);
+
+      let nodptindiv = (deptindx < 0 || mydivnumstr.length - 1 < deptindx);
+      if (nodptindiv);
+      else
+      {
+        //6.7
+        //012
+        // ^
+        let tempdivstr =  mydivnumstr.substring(deptindx + 1);
+        console.log("tempdivstr = " + tempdivstr);
+        console.log("tempdivstr.length = " + tempdivstr.length);
+
+        let nwsnum = mulValByPowOfTen(snum, tempdivstr.length);
+        let nwdivnum = mulValByPowOfTen(divnum, tempdivstr.length);
+        if (isfcall)
+        {
+          setStartNum(nwsnum);
+          setDivisor(nwdivnum);
+        }
+        //else;//do nothing
+        return newGenRows(nwsnum, nwdivnum, false, stopatrmdr, numdcs);
+      }
+
+      //now list 10 multiples of divnum
+      let divnummltpls = [];
+      for (let k = 0; k < 10; k++) divnummltpls.push(Number(divnum) * (k + 1));
+      console.log("divnummltpls = ", divnummltpls);
+
+      return genRowsRepeatUntil(snum, divnum, divnummltpls, 0, stopatrmdr, numdcs);
+    }
+  }
+
+  function genRows(snum, divnum, isfcall=true, stopatrmdr=false, numdcs=15)
+  {
+    console.log("snum = " + snum);
+    console.log("divnum = " + divnum);
+    console.log("isfcall = " + isfcall);
+    console.log("stopatrmdr = " + stopatrmdr);
+    console.log("numdcs = " + numdcs);
+    if (divnum === 0 || divnum === "0") throw new Error("cannot divide by zero!");
+    if (snum === 0 || snum === "0") return [genMinusRow(0), genAnswerRow(0)];
+    else
+    {
+      if (Number(divnum) === Number(snum)) return [genMinusRow(divnum), genAnswerRow(0)];
+      else
+      {
+        //if the divnum has n digits take the n + 1 digits on snum and
+        //see if what that divided by divnum is
+        //N = dq + r
+        let mydivnumstr = "" + divnum;
+        let mysnumstr = "" + snum;
+        console.log("mysnumstr = " + mysnumstr);
+        console.log("mydivnumstr = " + mydivnumstr);
+        console.log("mysnumstr.length = " + mysnumstr.length);
+        console.log("mydivnumstr.length = " + mydivnumstr.length);
+
+        let deptindx = mydivnumstr.indexOf(".");
+        console.log("deptindx = " + deptindx);
+
+        let nodptindiv = (deptindx < 0 || mydivnumstr.length - 1 < deptindx);
+        if (nodptindiv);
+        else
+        {
+          //6.7
+          //012
+          // ^
+          let tempdivstr =  mydivnumstr.substring(deptindx + 1);
+          console.log("tempdivstr = " + tempdivstr);
+          console.log("tempdivstr.length = " + tempdivstr.length);
+
+          const mymulcnst = Math.pow(10, tempdivstr.length);
+          if (isfcall)
+          {
+            setStartNum(Number(snum) * mymulcnst);
+            setDivisor(Number(divnum) * mymulcnst);
+          }
+          //else;//do nothing
+          return genRows(Number(snum) * mymulcnst, Number(divnum) * mymulcnst, false,
+            stopatrmdr, numdcs);
+        }
+
+        //now list 10 multiples of divnum
+        let divnummltpls = [];
+        for (let k = 0; k < 10; k++) divnummltpls.push(Number(divnum) * (k + 1));
+        console.log("divnummltpls = ", divnummltpls);
+
+        //if our number is less than the integer part on the start_num,
+        //then figure out what to subtract
+        let dptindxonsnum = mysnumstr.indexOf(".");
+        let nodptsnumindiv = (dptindxonsnum < 0 || mysnumstr.length - 1 < dptindxonsnum);
+        if (nodptsnumindiv);
+        else
+        {
+          let mywholesnum = Number(mysnumstr.substring(0, dptindxonsnum));
+          if (Number(divnum) < mywholesnum)
+          {
+            //it goes in at least once... figure out how many times
+            //67 < 221 we look at the multiples and see which one it is
+            let useval = 0;
+            let addonansval = 0;
+            for (let k = 0; k < divnummltpls.length; k++)
+            {
+              if (divnummltpls[k] < mywholesnum)
+              {
+                if (k + 1 < divnummltpls.length)
+                {
+                  if (mywholesnum < divnummltpls[k + 1])
+                  {
+                    useval = divnummltpls[k];
+                    addonansval = k + 1;
+                    break;
+                  }
+                  else if (mywholesnum === divnummltpls[k + 1])
+                  {
+                    useval = divnummltpls[k + 1];
+                    addonansval = k + 2;
+                    break;
+                  }
+                  //else;//do nothing
+                }
+                //else;//do nothing
+              }
+              else if (divnummltpls[k] === mywholesnum)
+              {
+                useval = divnummltpls[k];
+                addonansval = k + 1;
+                break;
+              }
+              else
+              {
+                if (k < 1)
+                {
+                  useval = 0;
+                  addonansval = 0;
+                }
+                else
+                {
+                  useval = divnummltpls[k - 1];
+                  addonansval = k;
+                }
+                break;
+              }
+            }//end of k for loop
+            console.log("useval = " + useval);
+            console.log("addonansval = " + addonansval);
+          }
+          else if (Number(divnum) === mywholesnum)
+          {
+            let myrws = [genMinusRow(divnum), genAnswerRow(snum - divnum)];
+            let temprws = genRows(snum - divnum, divnum, false, stopatrmdr, numdcs);
+            temprws.forEach((val) => myrws.push(val));
+            return myrws;
+          }
+          else
+          {
+            //do something else here...
+
+          }
+        }
+
+        //step#1 if divisior has a decimal get rid of it by multiplying by 10 each time
+        //step#2 your start number may still have a decimal number in it
+        //step#3 take the whole number of the start_num and divide it by divnum
+        //we start with our number of digits and see if it goes into that
+        //if not check and see if it goes into the next digit
+        //if 5 < 1 no so bring down next digit
+        //if 5 < 10 yes so figure out the multiple that is less than or equal to that
+        //this will be in the first place of the answer
+        //then subtract
+        //
+        //5 does not go into 1, but it does go into 10 2 times
+        //if it does not go into it, then zero.something
+        
+        
+        let useval = 0;
+        let answnumaddval = 0;
+        /*for (let k = 0; k + 2 < Infinity; k++)
+        {
+          let nval = Number((k + 1) * divnum);
+          let kval = Number((k + 2) * divnum);
+          console.log("nval = " + nval + " and kval = " + kval);
+          console.log("snum = " + snum);
+
+          if (nval < Number(snum))
+          {
+            if (Number(snum) < kval)
+            {
+              //use nval
+              console.log("nval < snum < kval!");
+              console.log("k = " + k);
+              useval = nval;
+              answnumaddval = k + 1;
+              break;
+            }
+            //else;//do nothing
+          }
+          else if (nval === Number(snum))
+          {
+            //use nval
+            console.log("nval matches snum!");
+            console.log("k = " + k);
+            useval = nval;
+            answnumaddval = k + 1;
+            break;
+          }
+          else
+          {
+            //use the one before...
+            console.log("we must use the one before!");
+            console.log("k = " + k);
+            let okval = Number(k * divnum);
+            useval = okval;
+            answnumaddval = k;
+            break;
+          }
+        }//end of k for loop*/
+        console.log("useval = " + useval);
+        console.log("answnumaddval = " + answnumaddval);
+
+        if (useval === Number(snum)) return [genMinusRow(useval), genAnswerRow(0)];
+        else if (useval < Number(snum))
+        {
+          let myrws = [genMinusRow(useval), genAnswerRow(snum - useval)];
+          //let temprws = genRows(snum - useval, divnum, false, stopatrmdr, numdcs);
+          return myrws;
+        }
+        else throw new Error("useval must be less than or equal to the start number!");
+      }
+    }
+  }
+
+  function mystartcalltorows(snum, divnum, stopatrem, numdecsstop)
+  {
+    let nwstartobj = getAndSetNewStartNumAndDivisorNum(snum, divnum);
+    return newGenRows(nwstartobj.snum, nwstartobj.divnum, true, stopatrem, numdecsstop);
+  }
+
+  let stopatrmdr = false;
+  let numdcs = 15;
+  /*<div className="App">
+      <header className="App-header">
+        <img src={logo} className="App-logo" alt="logo" />
+        <p>
+          Edit <code>src/App.js</code> and save to reload.
+        </p>
+        <a
+          className="App-link"
+          href="https://reactjs.org"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Learn React
+        </a>
+      </header>
+    </div>*/
+  //value={?}
+  //onChange={(event) => set?(event.target.value)}
+  
+  //testMulValByPowTen();
+  testAddOrSubtractTwoStrings();
+  return (<div>
+    <input type="number" step="1" min="0" placeholder="numdecimals"  />
+    <br />
+    <table>
+      <thead></thead>
+      <tbody>
+        <tr>
+          <td><input type="number" step="any" placeholder="divisor" value={divisor}
+            onChange={(event) => {
+              if (event.target.value === 0 || event.target.value === "0")
+              {
+                throw new Error("cannot divide by zero!");
+              }
+              else setDivisor(event.target.value);
+          }} /></td>
+          <td style={{borderLeft: "1px solid black", borderRight: "1px solid black",
+              borderTop: "1px solid black"}}>
+            <input type="number" step="any" placeholder="startnum" value={startnum}
+              onChange={(event) => setStartNum(event.target.value)} /></td>
+          <td><button onClick={(event) => setRun(!run)}>{run ? "stop" : "run"}</button></td>
+        </tr>
+        {run ? mystartcalltorows(startnum, divisor, stopatrmdr, numdcs) : null}
+      </tbody>
+    </table>
+  </div>);
+}
+
+export default App;
